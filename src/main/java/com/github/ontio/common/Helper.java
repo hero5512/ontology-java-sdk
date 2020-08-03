@@ -110,6 +110,15 @@ public class Helper {
         return result;
     }
 
+    public static String hexStringToString(String hexStr) {
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < hexStr.length() / 2; i++) {
+            result.append((char) Integer.valueOf(hexStr.substring(i * 2, i * 2 + 2), 16).byteValue());
+        }
+
+        return result.toString();
+    }
+
     public static String toHexString(byte[] value) {
         StringBuilder sb = new StringBuilder();
         for (byte b : value) {

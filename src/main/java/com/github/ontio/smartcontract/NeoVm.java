@@ -37,6 +37,7 @@ public class NeoVm {
     private Oep8 oep8Tx = null;
     private Record recordTx = null;
     private CredentialRecord credentialRecordTx = null;
+    private AnonymousRecord anonymousRecord = null;
     private OntId2 ontId2 = null;
 
     private OntSdk sdk;
@@ -95,6 +96,13 @@ public class NeoVm {
             credentialRecordTx = new CredentialRecord(sdk);
         }
         return credentialRecordTx;
+    }
+
+    public AnonymousRecord anonymousRecord() {
+        if (anonymousRecord == null) {
+            anonymousRecord = new AnonymousRecord(sdk);
+        }
+        return anonymousRecord;
     }
 
     public OntId2 ontId2() throws Exception {
