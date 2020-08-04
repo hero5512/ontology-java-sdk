@@ -13,12 +13,6 @@ public class AnonymousRecordTest extends TestCase {
 
     static String password = "passwordtest";
 
-    public static final int ISSUER_PUBLIC_SIZE = 928;
-    public static final int ACC_VALUE_SIZE = 96;
-    public static final int ACC_WITNESS_SIZE = 96 * 3 + 48 + 8;
-    public static final int MASTER_SECRET_SIZE = 32;
-    public static final int NONCE_SIZE = 16;
-
     public void test() throws Exception {
         OntSdk ontSdk = getOntSdk();
 
@@ -34,11 +28,13 @@ public class AnonymousRecordTest extends TestCase {
 
         String txHash = anonymousRecord.bind(issuerIdentity.ontid, password, issuerIdentity.controls.get(0).getSalt(), 1, issuerPublicKey, payer, ontSdk.DEFAULT_GAS_LIMIT, 2500);
         System.out.println("bind tx hash: " + txHash);
+        Thread.sleep(6000);
 
         byte[] accumulator = Helper.hexToBytes("9831cf29e03522ac557bcea14e97dc6aeeba111876cf69115923cb676b584aab3889120bbccc55f1d06946af048c7fbd063c134f2b5870885311317ded469025aa6c85a4a18b14e4b112c1701bea1bade765075fc28847aa4c835b430b6d9b86");
         byte[] witness = Helper.hexToBytes("0000000000000001928b17f348664696c84465b5e779cbf778ddfe73afa8944b3f9b33cd3997e91e96aa69836905e16bf3dd13d1222097798545188418de4cb188e1f68cb74c41b887e419c2ec0ca83a1e8815a252a0797829a547ba9a334a7e54e4c5c795dc9d8319000d9b0b0e3ee1a4ed59f17190156fd401d035cbcdae5b2de9c3156c1a3655e3971756c35d9e155e5d10244aa84c70868b037966df00b22cc4bb1929ba075e9be25ca8949d4ec6601a1da0710dd71b48306be8081544259bc9e2e45e42f43a1465ac5a37d0f926d17e89c297cdb97585671859af01e45875d36f21eb1f5151a72b6ddc4747d8e64f788717e03cb2d493a7c1b6a1c09cb8a5c6987f0d2e0b346eb95c69e96dfb414b636fd7c004ef8ca24cfc7a0e1e28ecb4cb9fc2f865e767021567789d012e8d2526065e8bd7a9f0f41783542c9dc4790c9dd437216729e113cfd767db02a3bab895228b15b73415");
         String txHash2 = anonymousRecord.updateAccumulator(issuerIdentity.ontid, password, issuerIdentity.controls.get(0).getSalt(), 1, 1L, accumulator, witness, payer, ontSdk.DEFAULT_GAS_LIMIT, 2500);
         System.out.println("update accumulator tx hash: " + txHash2);
+        Thread.sleep(6000);
 
         Accumulator acc = anonymousRecord.getAccumulator(issuerIdentity.ontid, 1L, ontSdk.DEFAULT_GAS_LIMIT, 2500);
         System.out.println("get accumulator value: " + Helper.toHexString(acc.accumulator));
@@ -52,6 +48,7 @@ public class AnonymousRecordTest extends TestCase {
 
         String txHash3 = anonymousRecord.revoke(issuerIdentity.ontid, password, issuerIdentity.controls.get(0).getSalt(), 1, 1L, payer, ontSdk.DEFAULT_GAS_LIMIT, 2500);
         System.out.println("revoke tx Hash: " + txHash3);
+        Thread.sleep(6000);
 
         acc = anonymousRecord.getAccumulator(issuerIdentity.ontid, 1L, ontSdk.DEFAULT_GAS_LIMIT, 2500);
         System.out.println("get accumulator value: " + Helper.toHexString(acc.accumulator));
