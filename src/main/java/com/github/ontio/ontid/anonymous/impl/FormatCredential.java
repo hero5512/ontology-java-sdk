@@ -6,37 +6,39 @@ import com.alibaba.fastjson.annotation.JSONField;
 import com.alibaba.fastjson.annotation.JSONType;
 import com.alibaba.fastjson.parser.Feature;
 import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.github.ontio.ontid.CredentialStatus;
 import com.github.ontio.sdk.exception.SDKException;
 
-@JSONType(orders = {"@context", "issuer", "holder", "issuanceDate", "expirationDate", "credentialSubject", "proof"})
+import java.util.UUID;
+
+@JSONType(orders = {"@context", "id", "type", "issuer", "issuanceDate", "expirationDate", "credentialSubject", "credentialStatus", "proof"})
 public class FormatCredential {
     @JSONField(name = "@context")
     public String[] context;
+    public String id;
+    public String[] type;
     public String issuer;
-    public String holder;
     public String issuanceDate;
     public String expirationDate;
     @JSONField(jsonDirect = true)
     public String credentialSubject;
+    public CredentialStatus credentialStatus;
     @JSONField(jsonDirect = true)
     public String proof;
 
     public FormatCredential() {
     }
 
-    /**
-     * @param credential
-     * @param context
-     * @param proof
-     */
-    public FormatCredential(Credential credential, String[] context, String issuer, String holder, String issuanceDate,
-                            String expirationDate, String credentialSubject, AnonymousProof proof) {
+    public FormatCredential(Credential credential, String[] context, String[] type, String issuer, String issuanceDate,
+                            String expirationDate, String credentialSubject, CredentialStatus credentialStatus, AnonymousProof proof) {
         this.context = context;
+        this.id = "urn:uuid:" + UUID.randomUUID().toString();
+        this.type = type;
         this.issuer = issuer;
-        this.holder = holder;
         this.issuanceDate = issuanceDate;
         this.expirationDate = expirationDate;
         this.credentialSubject = credentialSubject;
+        this.credentialStatus = credentialStatus;
         proof.signature = JSON.toJSONString(credential, SerializerFeature.MapSortField);
         this.proof = JSON.toJSONString(proof, SerializerFeature.MapSortField);
     }

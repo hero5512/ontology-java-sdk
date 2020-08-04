@@ -49,6 +49,9 @@ public class Credential {
     }
 
     private void createCredential(Library library, Pointer issuer, Request request) throws Exception {
+        if (issuer == null || request == null) {
+            throw new SDKException("param should not be null");
+        }
         String requestJsonStr = JSON.toJSONString(request, SerializerFeature.MapSortField);
         String credentialJsonStr = library.issue_credential(issuer, requestJsonStr);
         Credential credential = JSONObject.parseObject(credentialJsonStr, Credential.class, Feature.OrderedField);

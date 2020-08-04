@@ -1,9 +1,6 @@
 package com.github.ontio.ontid;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
-import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.github.ontio.OntSdk;
 import com.github.ontio.account.Account;
 import com.github.ontio.common.Helper;
@@ -18,11 +15,8 @@ import com.github.ontio.sdk.exception.SDKException;
 import com.github.ontio.smartcontract.nativevm.OntId;
 import com.github.ontio.smartcontract.neovm.AnonymousRecord;
 import com.github.ontio.smartcontract.neovm.CredentialRecord;
-import com.github.ontio.smartcontract.neovm.anonymous.Accumulator;
 import com.sun.jna.Pointer;
-import com.sun.tools.corba.se.idl.StringGen;
 
-import javax.xml.crypto.Data;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -35,6 +29,8 @@ public class OntId2 {
 
     public static final String PRESENTATION_DEFAULT_TYPE = "VerifiablePresentation";
 
+    public static final String ANONYMOUS_CREDENTIAL_TYPE = "AnonymousCredential";
+
     public static final String CRED_COMMITTED = "01";
     public static final String CRED_REVOKED = "00";
     public static final String CRED_NOT_EXIST = "02";
@@ -44,6 +40,7 @@ public class OntId2 {
     private OntId ontIdContract;
 
     private Library library;
+    private AnonymousRecord anonymousRecord;
 
     public OntIdSigner getSigner() {
         return signer;
@@ -82,8 +79,9 @@ public class OntId2 {
         }
     }
 
-    public OntId2(String ontId, Account signer, Library library, OntId ontIdContract) throws Exception {
+    public OntId2(String ontId, Account signer, Library library, AnonymousRecord anonymousRecord, OntId ontIdContract) throws Exception {
         this.library = library;
+        this.anonymousRecord = anonymousRecord;
         this.ontIdContract = ontIdContract;
         if (ontId != null && !"".equals(ontId) && signer != null) {
             OntIdPubKey pubKey = querySignerPubKey(ontId, Helper.toHexString(signer.serializePublicKey()));
@@ -676,12 +674,16 @@ public class OntId2 {
         return false;
     }
 
-    public FormatCredential createCredential(String issuerId, String holder, Pointer issuer, Request request, String[] context,
-                                             String verificationMethod, ProofPurpose purpose, Date expiration) throws Exception {
+    public FormatCredential createCredential(String issuerId, Pointer issuer, Request request, String[] context, String[] type,
+                                             CredentialStatusType statusType, String verificationMethod, ProofPurpose purpose, Date expiration) throws Exception {
         if (library == null) {
             throw new SDKException("anonymous library should be initialized");
         }
 
+        if (statusType != CredentialStatusType.SignatureContract) {
+            throw new SDKException("unsupported CredentialStatusType");
+        }
+
         ArrayList<String> wholeContext = new ArrayList<>();
         wholeContext.add(CRED_DEFAULT_CONTEXT1);
         wholeContext.add(CRED_DEFAULT_CONTEXT2);
@@ -690,26 +692,41 @@ public class OntId2 {
         }
         context = new String[]{};
 
+        ArrayList<String> wholeType = new ArrayList<>();
+        wholeType.add(CRED_DEFAULT_TYPE);
+        if (type != null) {
+            wholeType.addAll(Arrays.asList(type));
+        }
+        type = new String[]{};
+
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         Date current = new Date();
+        String expirationDate = null;
         String created = formatter.format(current);
         if (expiration != null) {
             if (expiration.before(current)) {
                 throw new SDKException("cred expired");
             }
+            expirationDate = formatter.format(expiration);
         }
-        String expirationDate = formatter.format(expiration);
 
-        AnonymousProof proof = new AnonymousProof(created, verificationMethod, purpose, "");
+        CredentialStatus credentialStatus = new CredentialStatus(anonymousRecord.getContractAddress(), statusType);
+
+        AnonymousProof proof = new AnonymousProof(ANONYMOUS_CREDENTIAL_TYPE, created, verificationMethod, purpose, "");
         Credential credential = new Credential(library, issuer, request);
 
-        FormatCredential formatCredential = new FormatCredential(credential, wholeContext.toArray(context), issuerId, holder, created, expirationDate, request.attributes, proof);
+
+        FormatCredential formatCredential = new FormatCredential(credential, wholeContext.toArray(context), wholeType.toArray(type), issuerId, created, expirationDate, request.attributes, credentialStatus, proof);
         return formatCredential;
     }
 
-    public FormatCredential createCredential(Credential credential, String issuerId, String holder, String[] context,
-                                             String verificationMethod, ProofPurpose purpose, Date expiration, String credentialSubject) throws SDKException {
+    public FormatCredential createCredential(Credential credential, String issuerId, String[] context, String[] type,
+                                             CredentialStatusType statusType, String verificationMethod, ProofPurpose purpose, Date expiration, String credentialSubject) throws SDKException {
+
+        if (statusType != CredentialStatusType.SignatureContract) {
+            throw new SDKException("unsupported CredentialStatusType");
+        }
 
         ArrayList<String> wholeContext = new ArrayList<>();
         wholeContext.add(CRED_DEFAULT_CONTEXT1);
@@ -718,34 +735,45 @@ public class OntId2 {
             wholeContext.addAll(Arrays.asList(context));
         }
 
+        ArrayList<String> wholeType = new ArrayList<>();
+        wholeType.add(CRED_DEFAULT_TYPE);
+        if (type != null) {
+            wholeType.addAll(Arrays.asList(type));
+        }
+        type = new String[]{};
+
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         Date current = new Date();
+        String expirationDate = null;
         String created = formatter.format(current);
         if (expiration != null) {
             if (expiration.before(current)) {
                 throw new SDKException("cred expired");
             }
+            expirationDate = formatter.format(expiration);
         }
-        String expirationDate = formatter.format(expiration);
 
-        AnonymousProof proof = new AnonymousProof(created, verificationMethod, purpose, "");
+        CredentialStatus credentialStatus = new CredentialStatus(anonymousRecord.getContractAddress(), statusType);
+
+        AnonymousProof proof = new AnonymousProof(ANONYMOUS_CREDENTIAL_TYPE, created, verificationMethod, purpose, "");
 
         context = new String[]{};
-        FormatCredential formatCredential = new FormatCredential(credential, wholeContext.toArray(context), issuerId, holder, created, expirationDate, credentialSubject, proof);
+        FormatCredential formatCredential = new FormatCredential(credential, wholeContext.toArray(context), wholeType.toArray(type), issuerId, created, expirationDate, credentialSubject, credentialStatus, proof);
         return formatCredential;
     }
 
     public FormatPresentation createPresentation(PresentationParam presentationParam, String issuerId, String holder, String[] context,
-                                                 String verificationMethod, ProofPurpose purpose) throws Exception {
+                                                 String[] type, String verificationMethod, ProofPurpose purpose) throws Exception {
         if (library == null) {
             throw new SDKException("parameter should be initialized");
         }
+
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         Date current = new Date();
         String created = formatter.format(current);
-        AnonymousProof proof = new AnonymousProof(created, verificationMethod, purpose, "");
+        AnonymousProof proof = new AnonymousProof(ANONYMOUS_CREDENTIAL_TYPE, created, verificationMethod, purpose, "");
 
         ArrayList<String> wholeContext = new ArrayList<>();
         wholeContext.add(CRED_DEFAULT_CONTEXT1);
@@ -753,19 +781,31 @@ public class OntId2 {
         if (context != null) {
             wholeContext.addAll(Arrays.asList(context));
         }
+
+        ArrayList<String> wholeType = new ArrayList<>();
+        wholeType.add(PRESENTATION_DEFAULT_TYPE);
+        if (type != null) {
+            wholeType.addAll(Arrays.asList(type));
+        }
+        type = new String[]{};
+
         Presentation presentation = new Presentation(library, presentationParam);
         context = new String[]{};
-        FormatPresentation formatPresentation = new FormatPresentation(presentation, wholeContext.toArray(context), issuerId, holder, proof);
+
+        // Presentation presentation, String[] context, String[] type, String issuer, String holder, AnonymousProof proof
+
+        FormatPresentation formatPresentation = new FormatPresentation(presentation, wholeContext.toArray(context), wholeType.toArray(type), issuerId, holder, proof);
         return formatPresentation;
     }
 
     public FormatPresentation createPresentation(Presentation presentation, String issuerId, String holder, String[] context,
-                                                 String verificationMethod, ProofPurpose purpose) {
+                                                 String[] type, String verificationMethod, ProofPurpose purpose) {
+
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         Date current = new Date();
         String created = formatter.format(current);
-        AnonymousProof proof = new AnonymousProof(created, verificationMethod, purpose, "");
+        AnonymousProof proof = new AnonymousProof(ANONYMOUS_CREDENTIAL_TYPE, created, verificationMethod, purpose, "");
 
         ArrayList<String> wholeContext = new ArrayList<>();
         wholeContext.add(CRED_DEFAULT_CONTEXT1);
@@ -774,7 +814,15 @@ public class OntId2 {
             wholeContext.addAll(Arrays.asList(context));
         }
         context = new String[]{};
-        FormatPresentation formatPresentation = new FormatPresentation(presentation, wholeContext.toArray(context), issuerId, holder, proof);
+
+        ArrayList<String> wholeType = new ArrayList<>();
+        wholeType.add(PRESENTATION_DEFAULT_TYPE);
+        if (type != null) {
+            wholeType.addAll(Arrays.asList(type));
+        }
+        type = new String[]{};
+
+        FormatPresentation formatPresentation = new FormatPresentation(presentation, wholeContext.toArray(context), wholeType.toArray(type), issuerId, holder, proof);
         return formatPresentation;
     }
 

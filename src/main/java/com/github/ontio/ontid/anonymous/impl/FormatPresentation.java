@@ -9,10 +9,14 @@ import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.github.ontio.ontid.anonymous.Library;
 import com.github.ontio.sdk.exception.SDKException;
 
-@JSONType(orders = {"@context", "issuer", "holder", "proof"})
+import java.util.UUID;
+
+@JSONType(orders = {"@context", "id", "type", "issuer", "holder", "proof"})
 public class FormatPresentation {
     @JSONField(name = "@context")
     public String[] context;
+    public String id;
+    public String[] type;
     public String issuer;
     public String holder;
     @JSONField(jsonDirect = true)
@@ -28,8 +32,10 @@ public class FormatPresentation {
      * @param holder
      * @param proof
      */
-    public FormatPresentation(Presentation presentation, String[] context, String issuer, String holder, AnonymousProof proof) {
+    public FormatPresentation(Presentation presentation, String[] context, String[] type, String issuer, String holder, AnonymousProof proof) {
         this.context = context;
+        this.id = "urn:uuid:" + UUID.randomUUID().toString();
+        this.type = type;
         this.issuer = issuer;
         this.holder = holder;
         proof.signature = JSON.toJSONString(presentation, SerializerFeature.MapSortField);
