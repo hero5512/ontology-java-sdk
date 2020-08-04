@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.github.ontio.OntSdk;
 import com.github.ontio.account.Account;
+import com.github.ontio.ontid.CredentialStatus;
+import com.github.ontio.ontid.CredentialStatusType;
 import com.github.ontio.ontid.OntId2;
 import com.github.ontio.ontid.ProofPurpose;
 import com.github.ontio.ontid.anonymous.impl.*;
@@ -33,7 +35,6 @@ public class AnonymousCredentialTest extends TestCase {
         OntSdk ontSdk = getOntSdk();
         // set credential contract address
         ontSdk.neovm().credentialRecord().setContractAddress("52df370680de17bc5d4262c446f102a0ee0d6312");
-        AnonymousRecord record = new AnonymousRecord(ontSdk);
         Library library = new LibraryImpl();
 
         Identity issuerIdentity = ontSdk.getWalletMgr().getWallet().getIdentity("did:ont:AJ4C9aTYxTGUhEpaZdPjFSqCqzMCqJDRUd");
@@ -41,8 +42,10 @@ public class AnonymousCredentialTest extends TestCase {
         Identity ownerIdentity = ontSdk.getWalletMgr().getWallet().getIdentity("did:ont:AVe4zVZzteo6HoLpdBwpKNtDXLjJBzB9fv");
         Account ownerSigner = ontSdk.getWalletMgr().getAccount(ownerIdentity.ontid, password, ownerIdentity.controls.get(0).getSalt());
 
-        OntId2 issuerId = new OntId2(issuerIdentity.ontid, issuerSigner, library, ontSdk.nativevm().ontId());
-        OntId2 ownerId = new OntId2(ownerIdentity.ontid, ownerSigner, library, ontSdk.nativevm().ontId());
+        AnonymousRecord anonymousRecord = new AnonymousRecord(ontSdk);
+
+        OntId2 issuerId = new OntId2(issuerIdentity.ontid, issuerSigner, library, anonymousRecord, ontSdk.nativevm().ontId());
+        OntId2 ownerId = new OntId2(ownerIdentity.ontid, ownerSigner, library, anonymousRecord, ontSdk.nativevm().ontId());
 
         System.out.println("-----------------------------------------------------------------------issuer generates key----------------------------------------------------------------------");
         Pointer issuer = library.new_issuer();
@@ -56,15 +59,20 @@ public class AnonymousCredentialTest extends TestCase {
 
 
         System.out.println("-----------------------------------------------------------------------issue credential1-----------------------------------------------------------------------");
-        String attr = "{\"name\":\"Alice\",\"age\":22,\"sex\":\"female\"}";
+        String attr = "{\"did\":\"did:ont:AVe4zVZzteo6HoLpdBwpKNtDXLjJBzB9fv\",\"name\":\"Alice\",\"age\":22,\"sex\":\"female\"}";
         byte[] nonce = new byte[NONCE_SIZE];
         RequestParm requestRaw = new RequestParm(masterSecret, attr, nonce, issuerPublic);
         Request request = new Request(library, requestRaw);
         String requestJSONStr = JSON.toJSONString(request, SerializerFeature.MapSortField);
         System.out.println(requestJSONStr);
 
+        String[] type = new String[]{"RelationshipCredential"};
+
         Date expiration = new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24);
-        FormatCredential formatCredential = issuerId.createCredential(issuerIdentity.ontid, ownerIdentity.ontid, issuer, request, null, "attest", ProofPurpose.assertionMethod, expiration);
+
+        // (String issuerId, Pointer issuer, Request request, String[] context, String[] type,
+        //                                             CredentialStatusType statusType, String verificationMethod, ProofPurpose purpose, Date expiration)
+        FormatCredential formatCredential = issuerId.createCredential(issuerIdentity.ontid, issuer, request, null, type, CredentialStatusType.SignatureContract, "attest", ProofPurpose.assertionMethod, null);
         String formatCredentialJSONStr = JSON.toJSONString(formatCredential, SerializerFeature.MapSortField);
         System.out.println(formatCredentialJSONStr);
 
@@ -73,9 +81,11 @@ public class AnonymousCredentialTest extends TestCase {
         Credential credential1 = formatCredential.extractCredential();
         byte[] acc = new byte[ACC_VALUE_SIZE];
         library.get_accumulator_value(acc, issuer);
-        String attrPresent = "{\"name\":{\"value\":\"Alice\",\"state\":\"disclose\"},\"age\": {\"value\":22,\"state\":\"range\",\"range\":[18, 100]},\"sex\":{\"value\":\"female\",\"state\":\"hide\"}}";
+        String attrPresent = "{\"did\":{\"value\":\"did:ont:AVe4zVZzteo6HoLpdBwpKNtDXLjJBzB9fv\",\"state\":\"disclose\"},\"name\":{\"value\":\"Alice\",\"state\":\"disclose\"},\"age\": {\"value\":22,\"state\":\"range\",\"range\":[18, 100]},\"sex\":{\"value\":\"female\",\"state\":\"hide\"}}";
         PresentationParam presentationParam = new PresentationParam(credential1, masterSecret, attrPresent, issuerPublic, acc, nonce);
-        FormatPresentation formatPresentation = ownerId.createPresentation(presentationParam, issuerIdentity.ontid, ownerIdentity.ontid, null, "attest", ProofPurpose.assertionMethod);
+        // PresentationParam presentationParam, String issuerId, String holder, String[] context,
+        //                                                 String[] type, String verificationMethod, ProofPurpose purpose
+        FormatPresentation formatPresentation = ownerId.createPresentation(presentationParam, issuerIdentity.ontid, ownerIdentity.ontid, null, type, "attest", ProofPurpose.assertionMethod);
 
         String formatPresentationJsonStr = JSON.toJSONString(formatPresentation, SerializerFeature.MapSortField);
         System.out.println(formatPresentationJsonStr);
@@ -94,7 +104,7 @@ public class AnonymousCredentialTest extends TestCase {
         Request request2 = new Request(library, requestRaw2);
 
         Date expiration2 = new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24);
-        FormatCredential formatCredential2 = issuerId.createCredential(issuerIdentity.ontid, ownerIdentity.ontid, issuer, request2, null, "attest", ProofPurpose.assertionMethod, expiration2);
+        FormatCredential formatCredential2 = issuerId.createCredential(issuerIdentity.ontid, issuer, request2, null, type, CredentialStatusType.SignatureContract, "attest", ProofPurpose.assertionMethod, expiration2);
         String formatCredentialJSONStr2 = JSON.toJSONString(formatCredential2, SerializerFeature.MapSortField);
         System.out.println(formatCredentialJSONStr2);
 
@@ -119,9 +129,11 @@ public class AnonymousCredentialTest extends TestCase {
 
         System.out.println("-----------------------------------------------------------------------make credential1's presentation again-----------------------------------------------------------------------");
         Credential credential2 = formatCredential.extractCredential();
-        String attrPresent2 = "{\"name\":{\"value\":\"Alice\",\"state\":\"disclose\"},\"age\": {\"value\":22,\"state\":\"range\",\"range\":[18, 100]},\"sex\":{\"value\":\"female\",\"state\":\"hide\"}}";
+        String attrPresent2 = "{\"did\":{\"value\":\"did:ont:AVe4zVZzteo6HoLpdBwpKNtDXLjJBzB9fv\",\"state\":\"disclose\"},\"name\":{\"value\":\"Alice\",\"state\":\"disclose\"},\"age\": {\"value\":22,\"state\":\"range\",\"range\":[18, 100]},\"sex\":{\"value\":\"female\",\"state\":\"hide\"}}";
         PresentationParam presentationParam2 = new PresentationParam(credential2, masterSecret, attrPresent2, issuerPublic, acc, nonce);
-        FormatPresentation formatPresentation2 = ownerId.createPresentation(presentationParam2, issuerIdentity.ontid, ownerIdentity.ontid, null, "attest", ProofPurpose.assertionMethod);
+        //FormatPresentation createPresentation(PresentationParam presentationParam, String issuerId, String holder, String[] context,
+        //                                                 String[] type, String verificationMethod, ProofPurpose purpose)
+        FormatPresentation formatPresentation2 = ownerId.createPresentation(presentationParam2, issuerIdentity.ontid, ownerIdentity.ontid, null, type, "attest", ProofPurpose.assertionMethod);
 
         String formatPresentationJsonStr2 = JSON.toJSONString(formatPresentation2, SerializerFeature.MapSortField);
         System.out.println(formatPresentationJsonStr2);
@@ -135,7 +147,7 @@ public class AnonymousCredentialTest extends TestCase {
         String attrPresent3 = "{\"name\":{\"value\":\"Bob\",\"state\":\"disclose\"},\"age\": {\"value\":22,\"state\":\"range\",\"range\":[18, 100]},\"sex\":{\"value\":\"male\",\"state\":\"hide\"}}";
         Credential credential6 = formatCredential2.extractCredential();
         PresentationParam presentationParam3 = new PresentationParam(credential6, masterSecret2, attrPresent3, issuerPublic, acc, nonce);
-        FormatPresentation formatPresentation3 = ownerId.createPresentation(presentationParam3, issuerIdentity.ontid, ownerIdentity.ontid, null, "attest", ProofPurpose.assertionMethod);
+        FormatPresentation formatPresentation3 = ownerId.createPresentation(presentationParam3, issuerIdentity.ontid, ownerIdentity.ontid, null, type, "attest", ProofPurpose.assertionMethod);
 
         String formatPresentationJsonStr3 = JSON.toJSONString(formatPresentation3, SerializerFeature.MapSortField);
         System.out.println(formatPresentationJsonStr3);
@@ -165,7 +177,7 @@ public class AnonymousCredentialTest extends TestCase {
         String attrPresent4 = "{\"name\":{\"value\":\"Bob\",\"state\":\"disclose\"},\"age\": {\"value\":22,\"state\":\"range\",\"range\":[18, 100]},\"sex\":{\"value\":\"male\",\"state\":\"hide\"}}";
         Credential credential7 = formatCredential2.extractCredential();
         PresentationParam presentationParam4 = new PresentationParam(credential7, masterSecret2, attrPresent4, issuerPublic, acc, nonce);
-        FormatPresentation formatPresentation4 = ownerId.createPresentation(presentationParam4, issuerIdentity.ontid, ownerIdentity.ontid, null, "attest", ProofPurpose.assertionMethod);
+        FormatPresentation formatPresentation4 = ownerId.createPresentation(presentationParam4, issuerIdentity.ontid, ownerIdentity.ontid, null, type, "attest", ProofPurpose.assertionMethod);
 
         String formatPresentationJsonStr4 = JSON.toJSONString(formatPresentation4, SerializerFeature.MapSortField);
         System.out.println(formatPresentationJsonStr4);
